@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Link</title>
+<style>
+  :root{ --bg:#0f1115; --fg:#e8eaed; --muted:#9aa0a6; --accent:#4f8cff; --card:#171a21; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       display:flex;align-items:center;justify-content:center;padding:24px;text-align:center}
+  .wrap{max-width:360px;width:100%}
+  .dot{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:var(--accent);
+       margin:0 auto 18px;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  h1{font-size:18px;margin:.2em 0}
+  p{color:var(--muted);margin:.4em 0}
+  .btn{display:inline-block;margin-top:18px;padding:16px 24px;border-radius:12px;background:var(--accent);color:#fff;
+       text-decoration:none;font-weight:700;font-size:17px;
+       -webkit-touch-callout:default;touch-callout:default;-webkit-user-select:none;user-select:none}
+  .small{color:var(--muted);font-size:13px;margin-top:14px}
+  #ios{display:none;margin-top:22px}
+  .hint{background:var(--card);border-radius:14px;padding:16px;margin-top:16px;text-align:left}
+  .hint b{color:var(--fg)}
+  .arrow{font-size:22px}
+  .row{display:flex;align-items:center;gap:10px;margin:8px 0;color:var(--muted)}
+  .kbd{background:#242833;border-radius:6px;padding:2px 8px;color:#fff;font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loader">
+    <div class="dot" aria-hidden="true"></div>
+    <h1>Opening…</h1>
+    <p>Redirecting you to the page.</p>
+  </div>
+
+  <!-- iOS: long-press the real link → native "Open in Safari". Shown only in iOS in-app browsers. -->
+  <div id="ios">
+    <h1>Almost there</h1>
+    <p><b>Press &amp; hold</b> the button, then tap <b>Open in Safari</b>:</p>
+    <a class="btn" id="iosGo" href="#">👆 Press &amp; hold to open</a>
+    <p class="small">or tap <span class="kbd">•••</span> (top-right) → <b>Open in external browser</b></p>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     CONFIG — edit these two lines only
+     ============================================================ */
+  // Destination (OnlyFans/offer). Base64-encoded so it is NOT in plain
+  // source (IG's page-reading bot scans HTML). Encode with:
+  //   btoa("https://onlyfans.com/yourmodel")   in any browser console.
+  var DEST_B64 = "aHR0cHM6Ly9vbmx5ZmFucy5jb20vc3RhY3lfaG90dGVhL2MyNDM=";   // https://onlyfans.com/stacy_hottea/c243
+
+  // Optional hit-logger endpoint for per-account attribution. Leave "" to skip.
+  // Receives GET: <ENDPOINT>?a=<account>&p=<platform>&r=<referrer>
+  var TRACK_ENDPOINT = "";                          // e.g. "https://log.example.com/hit"
+
+  // If true, also force Chrome as a fallback on Android when the default
+  // browser handoff does not fire. false = default browser only.
+  var ANDROID_CHROME_FALLBACK = true;
+  /* ============================================================ */
+
+  function dest(){ try{ return atob(DEST_B64); }catch(e){ return "https://example.com/"; } }
+
+  var qs = new URLSearchParams(location.search);
+  var acct = qs.get("a") || location.pathname.replace(/[^A-Za-z0-9_.-]/g,"") || "";
+  var ua = navigator.userAgent || "";
+  var uaL = ua.toLowerCase();
+
+  // ---- 1) Bot / crawler cloak -------------------------------------------
+  // Best-effort: known crawlers + headless get the neutral page, no redirect,
+  // and the destination is never touched (stays hidden).
+  var BOT = /(bot|crawl|spider|slurp|facebookexternalhit|facebot|meta-external|whatsapp|preview|scan|headless|phantom|python|curl|wget|http-client|lighthouse|monitor)/i.test(ua);
+  try {
+    if (navigator.webdriver) BOT = true;                 // automation flag
+    // A UA claiming mobile but with zero touch points is suspicious.
+    var mobileClaim = /(android|iphone|ipad|ipod|mobile)/i.test(ua);
+    if (mobileClaim && (navigator.maxTouchPoints||0) === 0 && !("ontouchstart" in window)) BOT = true;
+  } catch(e){}
+
+  if (BOT) {
+    // Neutral page, no redirect. (loader stays: looks like a plain link page.)
+    document.getElementById("loader").querySelector("h1").textContent = "Link";
+    document.getElementById("loader").querySelector("p").textContent = "";
+    document.querySelector(".dot").style.display = "none";
+    return;
+  }
+
+  // ---- 2) Fire attribution beacon (human only) --------------------------
+  if (TRACK_ENDPOINT) {
+    try {
+      var url = TRACK_ENDPOINT + (TRACK_ENDPOINT.indexOf("?")<0?"?":"&")
+              + "a=" + encodeURIComponent(acct)
+              + "&p=" + encodeURIComponent(platform())
+              + "&r=" + encodeURIComponent(document.referrer||"");
+      if (navigator.sendBeacon) navigator.sendBeacon(url);
+      else { var i=new Image(); i.src=url; }
+    } catch(e){}
+  }
+
+  // ---- 3) Platform detect ----------------------------------------------
+  function platform(){
+    if (/android/i.test(ua)) return "android";
+    if (/iphone|ipad|ipod/i.test(ua) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1)) return "ios";
+    return "other";
+  }
+
+  var D = dest();
+  var p = platform();
+
+  if (p === "android") {
+    openAndroid(D);
+  } else if (p === "ios") {
+    openIOS(D);
+  } else {
+    location.replace(D);   // desktop / unknown → straight to dest
+  }
+
+  // ---- Android: break out of IG in-app webview into the default browser --
+  function openAndroid(target){
+    var u;
+    try { u = new URL(target); } catch(e){ location.replace(target); return; }
+    // intent:// with NO package = Android resolves to the DEFAULT browser.
+    var base = "intent://" + u.host + u.pathname + u.search + u.hash;
+    var intentDefault = base + "#Intent;scheme=https;S.browser_fallback_url="
+                      + encodeURIComponent(target) + ";end";
+    var intentChrome  = base + "#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="
+                      + encodeURIComponent(target) + ";end";
+
+    // Try default browser first.
+    location.href = intentDefault;
+
+    // If still here after a moment, try Chrome, then plain https.
+    if (ANDROID_CHROME_FALLBACK) {
+      setTimeout(function(){ location.href = intentChrome; }, 800);
+    }
+    setTimeout(function(){ location.href = target; }, 1600);
+  }
+
+  // ---- iOS: cannot force default browser from webview → nudge + fallback -
+  function openIOS(target){
+    // Detect if we're inside an in-app browser (Instagram/FB/etc.).
+    var inApp = /(instagram|fbav|fban|fb_iab|fbios|line|micromessenger|twitter|tiktok|snapchat)/i.test(uaL);
+
+    document.getElementById("iosGo").setAttribute("href", target);
+
+    if (inApp) {
+      // Show the "open in external browser" instruction.
+      document.getElementById("loader").style.display = "none";
+      document.getElementById("ios").style.display = "block";
+    } else {
+      // Already in Safari/Chrome → just go.
+      location.replace(target);
+    }
+  }
+})();
+</script>
+</body>
+</html>
