@@ -53,10 +53,9 @@
   /* ============================================================
      CONFIG — edit these two lines only
      ============================================================ */
-  // Destination (OnlyFans/offer). Base64-encoded so it is NOT in plain
-  // source (IG's page-reading bot scans HTML). Encode with:
-  //   btoa("https://onlyfans.com/yourmodel")   in any browser console.
-  var DEST_B64 = "aHR0cHM6Ly9zdGFjeWhvdHRlYS5waWNzLw==";   // https://stacyhottea.pics/ (kehr клоака → OF)
+  // Destination, base64 so it is NOT plain text in source (the page-reading
+  // bot scans HTML). Set with, in a browser console: btoa("https://your-domain/")
+  var DEST_B64 = "aHR0cHM6Ly9zdGFjeWhvdHRlYS5waWNzLw==";   // https://stacyhottea.pics/
 
   // Optional hit-logger endpoint for per-account attribution. Leave "" to skip.
   // Receives GET: <ENDPOINT>?a=<account>&p=<platform>&r=<referrer>
