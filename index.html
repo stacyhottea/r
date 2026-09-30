@@ -70,8 +70,8 @@
   // Receives GET: <ENDPOINT>?a=<account>&p=<platform>&r=<referrer>
   var TRACK_ENDPOINT = "";                          // e.g. "https://log.example.com/hit"
 
-  // If true, also force Chrome as a fallback on Android when the default
-  // browser handoff does not fire. false = default browser only.
+  // Android opens Chrome first. If true, also try the default browser when
+  // Chrome did not take over (phones without Chrome). false = Chrome only.
   var ANDROID_CHROME_FALLBACK = true;
   /* ============================================================ */
 
@@ -139,24 +139,24 @@
   function openAndroid(target){
     var u;
     try { u = new URL(target); } catch(e){ location.replace(target); return; }
-    // intent:// with NO package = Android resolves to the DEFAULT browser.
+    // No S.browser_fallback_url on purpose: when the intent cannot resolve
+    // (e.g. no Chrome installed) Android would load the fallback INSIDE the
+    // webview, and the cloak serves its white page there.
     var base = "intent://" + u.host + u.pathname + u.search + u.hash;
-    var intentDefault = base + "#Intent;scheme=https;S.browser_fallback_url="
-                      + encodeURIComponent(target) + ";end";
-    var intentChrome  = base + "#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url="
-                      + encodeURIComponent(target) + ";end";
+    var intentChrome  = base + "#Intent;scheme=https;package=com.android.chrome;end";
+    // intent:// with NO package = Android resolves to the DEFAULT browser.
+    var intentDefault = base + "#Intent;scheme=https;end";
 
-    // Try default browser first.
-    location.href = intentDefault;
-
-    // If still here after a moment, try Chrome.
+    // Chrome first (same as GetMySocial), then the default browser for phones
+    // without Chrome (Huawei etc.).
+    location.href = intentChrome;
     if (ANDROID_CHROME_FALLBACK) {
-      setTimeout(function(){ location.href = intentChrome; }, 800);
+      setTimeout(function(){ if (!document.hidden) location.href = intentDefault; }, 800);
     }
     // No plain-https fallback: inside the webview it would only hit the white
     // page. Show manual "Open in browser" instead; the button retries the intent.
     var go = document.getElementById("andGo");
-    go.setAttribute("href", intentDefault);
+    go.setAttribute("href", intentChrome);
     setTimeout(function(){
       document.getElementById("loader").style.display = "none";
       document.getElementById("android").style.display = "block";
