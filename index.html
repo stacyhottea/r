@@ -43,6 +43,14 @@
     <p><b>Press &amp; hold</b> the button, then tap <b>Open in Safari</b>:</p>
     <a class="btn" id="iosGo" href="#">👆 Press &amp; hold to open</a>
     <p class="small">or tap <span class="kbd">•••</span> (top-right) → <b>Open in external browser</b></p>
+    <p class="small" id="iosTapHint" style="display:none;color:#ffb74d">Don't tap — <b>press &amp; hold</b> the button 👆</p>
+  </div>
+
+  <!-- Android: shown only if the in-app browser did not hand off to the real browser. -->
+  <div id="android" style="display:none;margin-top:22px">
+    <h1>Almost there</h1>
+    <p>Tap <span class="kbd">⋮</span> (top-right) → <b>Open in browser</b></p>
+    <a class="btn" id="andGo" href="#">Open in browser</a>
   </div>
 </div>
 
@@ -114,8 +122,12 @@
   var D = dest();
   var p = platform();
 
+  // In-app webviews (Instagram/FB/...). The cloak treats them as bots and
+  // serves its white page, so the destination must NEVER be opened inside one.
+  var inApp = /(instagram|fbav|fban|fb_iab|fbios|line|micromessenger|twitter|tiktok|snapchat|; wv\))/i.test(uaL);
+
   if (p === "android") {
-    openAndroid(D);
+    if (inApp) openAndroid(D); else location.replace(D);
   } else if (p === "ios") {
     openIOS(D);
   } else {
@@ -136,24 +148,48 @@
     // Try default browser first.
     location.href = intentDefault;
 
-    // If still here after a moment, try Chrome, then plain https.
+    // If still here after a moment, try Chrome.
     if (ANDROID_CHROME_FALLBACK) {
       setTimeout(function(){ location.href = intentChrome; }, 800);
     }
-    setTimeout(function(){ location.href = target; }, 1600);
+    // No plain-https fallback: inside the webview it would only hit the white
+    // page. Show manual "Open in browser" instead; the button retries the intent.
+    var go = document.getElementById("andGo");
+    go.setAttribute("href", intentDefault);
+    setTimeout(function(){
+      document.getElementById("loader").style.display = "none";
+      document.getElementById("android").style.display = "block";
+    }, 1600);
   }
 
   // ---- iOS: cannot force default browser from webview → nudge + fallback -
   function openIOS(target){
-    // Detect if we're inside an in-app browser (Instagram/FB/etc.).
-    var inApp = /(instagram|fbav|fban|fb_iab|fbios|line|micromessenger|twitter|tiktok|snapchat)/i.test(uaL);
-
-    document.getElementById("iosGo").setAttribute("href", target);
+    var btn = document.getElementById("iosGo");
+    // href stays the real URL: long-press menu → "Open in Safari" needs it.
+    btn.setAttribute("href", target);
 
     if (inApp) {
+      // iOS 17+ understands x-safari-https:// and opens Safari straight from
+      // the webview. Older iOS: only long-press works.
+      var m = ua.match(/OS (\d+)[_.]/);
+      var iosMajor = m ? parseInt(m[1], 10) : 0;
+      var safariUrl = iosMajor >= 17 ? "x-safari-" + target : "";
+
       // Show the "open in external browser" instruction.
       document.getElementById("loader").style.display = "none";
       document.getElementById("ios").style.display = "block";
+
+      // A plain tap would open the destination inside the webview → white
+      // page. Intercept it: jump to Safari if we can, otherwise ask to hold.
+      btn.addEventListener("click", function(e){
+        e.preventDefault();
+        if (safariUrl) { location.href = safariUrl; }
+        else { document.getElementById("iosTapHint").style.display = "block"; }
+      });
+
+      if (safariUrl) {
+        setTimeout(function(){ location.href = safariUrl; }, 150);
+      }
     } else {
       // Already in Safari/Chrome → just go.
       location.replace(target);
