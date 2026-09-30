@@ -37,13 +37,14 @@
     <p>Redirecting you to the page.</p>
   </div>
 
-  <!-- iOS: long-press the real link → native "Open in Safari". Shown only in iOS in-app browsers. -->
+  <!-- iOS in-app: tap → Instagram's own "open in external browser" link (system
+       "Open" popup). Long-press on the same button still works as a fallback. -->
   <div id="ios">
     <h1>Almost there</h1>
-    <p><b>Press &amp; hold</b> the button, then tap <b>Open in Safari</b>:</p>
-    <a class="btn" id="iosGo" href="#">👆 Press &amp; hold to open</a>
+    <p>Tap the button and choose <b>Open</b></p>
+    <a class="btn" id="iosGo" href="#">💬 Text me</a>
+    <p id="iosTapHint" class="small" style="display:none;color:#ffb74d;font-size:15px;font-weight:700">Nothing happened? <b>Press &amp; hold</b> the button 👆<br>then choose <b>Open in Safari</b></p>
     <p class="small">or tap <span class="kbd">•••</span> (top-right) → <b>Open in external browser</b></p>
-    <p class="small" id="iosTapHint" style="display:none;color:#ffb74d">Don't tap — <b>press &amp; hold</b> the button 👆</p>
   </div>
 
   <!-- Android: shown only if the in-app browser did not hand off to the real browser. -->
@@ -169,26 +170,32 @@
     btn.setAttribute("href", target);
 
     if (inApp) {
-      // iOS 17+ understands x-safari-https:// and opens Safari straight from
-      // the webview. Older iOS: only long-press works.
+      // Instagram: its own deep link opens the URL in the external browser
+      // (same trick GetMySocial uses). Instagram silently blocks x-safari, so
+      // x-safari is only for other in-app browsers (FB, TikTok...) on iOS 17+.
       var m = ua.match(/OS (\d+)[_.]/);
       var iosMajor = m ? parseInt(m[1], 10) : 0;
-      var safariUrl = iosMajor >= 17 ? "x-safari-" + target : "";
+      var escapeUrl = /instagram/i.test(ua)
+        ? "instagram://extbrowser/?url=" + encodeURIComponent(target)
+        : (iosMajor >= 17 ? "x-safari-" + target : "");
 
-      // Show the "open in external browser" instruction.
       document.getElementById("loader").style.display = "none";
       document.getElementById("ios").style.display = "block";
 
-      // A plain tap would open the destination inside the webview → white
-      // page. Intercept it: jump to Safari if we can, otherwise ask to hold.
+      // A plain tap must never open the destination inside the webview (the
+      // cloak serves its white page there). If the escape did not fire and we
+      // are still visible, fall back to the long-press hint.
+      function showHoldHint(){
+        if (!document.hidden) document.getElementById("iosTapHint").style.display = "block";
+      }
       btn.addEventListener("click", function(e){
         e.preventDefault();
-        if (safariUrl) { location.href = safariUrl; }
-        else { document.getElementById("iosTapHint").style.display = "block"; }
+        if (escapeUrl) { location.href = escapeUrl; setTimeout(showHoldHint, 1500); }
+        else { showHoldHint(); }
       });
 
-      if (safariUrl) {
-        setTimeout(function(){ location.href = safariUrl; }, 150);
+      if (escapeUrl) {
+        setTimeout(function(){ location.href = escapeUrl; }, 150);
       }
     } else {
       // Already in Safari/Chrome → just go.
